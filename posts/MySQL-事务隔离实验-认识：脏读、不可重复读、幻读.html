@@ -1,0 +1,237 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><meta name="author" content="Zane,pi@0php.net"><title>MySQL 事务隔离实验-认识：脏读、不可重复读、幻读 · 一只贱熊猫的博客</title><meta name="description" content="0x00 前言大家也许听说过 MySQL 的事务在高并发执行的时候可能会发生脏读、不可重复读、幻读等问题。对于有处理高并发经验的老鸟，可能认知会更深一些所以觉得 so easy~「老鸟请点红叉离开，或者发起友好评论O(∩_∩)O哈哈~」，不过对于像我这种难以接触到高并发业务场景的初学者来说，也就只能"><meta name="keywords" content="PHP,Web,Swoole,HTML,CSS"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="renderer" content="webkit"><link rel="short icon" href="/images/favicon.png" type="image/x-icon"><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/blog_basic.css"><link rel="stylesheet" href="/css/font-awesome.min.css"><link rel="alternate" type="application/atom+xml" title="ATOM 1.0" href="/atom.xml"></head><body><div class="sidebar animated fadeInDown"><div class="logo-title"><div class="title"><img src="/images/logo@2x.png" style="width:127px;"><h3 title=""><a href="/">一只贱熊猫的博客</a></h3><div class="description"><p>夫夷以近，则游者众；险以远，则至者少。</p></div></div></div><ul class="social-links"><li><a href="http://github.com/zanemmm"><i class="fa fa-github"></i></a></li></ul><div class="footer"><a target="_blank" href="/"><span>Theme by </span></a><a href="https://www.caicai.me"> CaiCai </a><span>&</span><a href="https://github.com/Ben02/hexo-theme-Anatole"> Ben</a><div class="by_farbox"><a href="https://hexo.io/zh-cn/" target="_blank">Proudly published with Hexo&#65281;</a></div></div></div><div class="main"><div class="page-top animated fadeInDown"><div class="nav"><li><a href="/">首页</a></li><li><a href="/about">关于</a></li><li><a href="/archives">归档</a></li><li><a href="/links">友链</a></li></div><div class="information"><div class="back_btn"><li><a class="fa fa-chevron-left" onclick="window.history.go(-1)"> </a></li></div><div class="avatar"><img src="/images/logo.png"></div></div></div><div class="autopagerize_page_element"><div class="content"><div class="post-page"><div class="post animated fadeInDown"><div class="post-title"><h3><a>MySQL 事务隔离实验-认识：脏读、不可重复读、幻读</a></h3></div><div class="post-content"><h2 id="0x00-前言"><a href="#0x00-前言" class="headerlink" title="0x00 前言"></a>0x00 前言</h2><p>大家也许听说过 MySQL 的事务在高并发执行的时候可能会发生<strong>脏读</strong>、<strong>不可重复读</strong>、<strong>幻读</strong>等问题。对于有处理高并发经验的老鸟，可能认知会更深一些所以觉得 so easy~「老鸟请点红叉离开，或者发起友好评论O(∩_∩)O哈哈~」，不过对于像我这种难以接触到高并发业务场景的初学者来说，也就只能看几篇博文，了解一下概念，纸上谈兵/(ㄒoㄒ)/~~。不过本着「打破砂锅问到底」的精神，决定通过做实验来提高对其理解，顺便增强记忆（起码找工作被问到还能说两句）。</p>
+<h2 id="0x01-MySql-事务隔离级别"><a href="#0x01-MySql-事务隔离级别" class="headerlink" title="0x01 MySql 事务隔离级别"></a>0x01 MySql 事务隔离级别</h2><p>MySql 事务隔离级别和允许并发副作用，分别如下表：</p>
+<table>
+<thead>
+<tr>
+<th>事务隔离级别</th>
+<th style="text-align:left">脏读</th>
+<th>不可重复读</th>
+<th>幻读</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>读未提交（read uncommitted）</td>
+<td style="text-align:left">是</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr>
+<td>不可重复读（read committed）</td>
+<td style="text-align:left">否</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr>
+<td>可重复读（repeatable read）</td>
+<td style="text-align:left">否</td>
+<td>否</td>
+<td>是</td>
+</tr>
+<tr>
+<td>串行化（serializable）</td>
+<td style="text-align:left">否</td>
+<td>否</td>
+<td>否</td>
+</tr>
+</tbody>
+</table>
+<p>由上表可知，MySQL 共支持四种事务隔离级别。表由上到下允许并发副作用越来越弱，似乎我们只要选择<code>串行化（serializable）</code>的事务隔离级别就不会发生<strong>脏读</strong>、<strong>不可重复读</strong>、<strong>幻读</strong>等问题了，但是选择<code>串行化（serializable）</code>却会带来一定的性能下降。所以关于如何选择事务隔离级别我们需要对<strong>脏读</strong>、<strong>不可重复读</strong>、<strong>幻读</strong>有一定认知，并确定这几种副作用对应用的影响，然后选择合适的隔离级别。</p>
+<p>MySQL 的默认事务隔离级别为 <code>可重复读（repeatable read）</code> 所以我们不用担心「脏读」和「不可重复读」。</p>
+<p>查询 MySQL 事务隔离级别的语句如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> @@tx_isolation;</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">输出结果：</span></span><br><span class="line"><span class="comment">+-----------------+</span></span><br><span class="line"><span class="comment">| @@tx_isolation  |</span></span><br><span class="line"><span class="comment">+-----------------+</span></span><br><span class="line"><span class="comment">| REPEATABLE-READ |</span></span><br><span class="line"><span class="comment">+-----------------+</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+<p>设置事务隔离级别：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 设置事务隔离级别为 read committed，仅在本次会话中生效</span></span><br><span class="line"><span class="keyword">set</span> <span class="keyword">session</span> <span class="keyword">transaction</span> <span class="keyword">isolation</span> <span class="keyword">level</span> <span class="keyword">read</span> committed;</span><br></pre></td></tr></table></figure>
+<p>或者可以修改 <code>my.cnf</code> 配置文件使其永久生效。</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="attr">transaction-isolation</span> = REPEATABLE-READ</span><br></pre></td></tr></table></figure>
+<h2 id="0x02-实验环境"><a href="#0x02-实验环境" class="headerlink" title="0x02 实验环境"></a>0x02 实验环境</h2><p>本次实验采用 MySql 5.7.21 版本（储存引擎为 Innodb），测试数据表结构如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">+-------+----------+------+-----+---------+----------------+</span></span><br><span class="line"><span class="comment">| Field | Type     | Null | Key | Default | Extra          |</span></span><br><span class="line"><span class="comment">+-------+----------+------+-----+---------+----------------+</span></span><br><span class="line"><span class="comment">| id    | int(11)  | NO   | PRI | &lt;null&gt;  | auto_increment |</span></span><br><span class="line"><span class="comment">| name  | char(20) | NO   |     | &lt;null&gt;  |                |</span></span><br><span class="line"><span class="comment">| money | float    | NO   |     | 0       |                |</span></span><br><span class="line"><span class="comment">+-------+----------+------+-----+---------+----------------+</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+<h2 id="0x03-脏读"><a href="#0x03-脏读" class="headerlink" title="0x03 脏读"></a>0x03 脏读</h2><p>脏读的概念如下：</p>
+<blockquote>
+<p>事务中的修改，即使没有提交，对其他事务也都是可见的。事务可以读取未提交的数据，这也被称作脏读。</p>
+</blockquote>
+<p>个人认为脏读的副作用是最大的，现在通过实验证明脏读的危害。</p>
+<p>实验<code>users</code>表如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| id | name | money  |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| 1  | 小王 | 1000.0 |</span></span><br><span class="line"><span class="comment">| 2  | 小明 |    0.0 |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+<p>实验步骤表：</p>
+<table>
+<thead>
+<tr>
+<th>时间</th>
+<th>客户端 A</th>
+<th>客户端 B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td>设置事务隔离级别为 read uncommitted</td>
+<td>设置事务隔离级别为 read uncommitted</td>
+</tr>
+<tr>
+<td>T2</td>
+<td>开始事务 A<br> <code>begin;</code></td>
+<td></td>
+</tr>
+<tr>
+<td>T3</td>
+<td>小王转款给小明 500 元<br><code>update users set money=money-500 where id = 1;</code><br><code>update users set money=money+500 where id = 2;</code></td>
+<td></td>
+</tr>
+<tr>
+<td>T4</td>
+<td></td>
+<td>开始事务 B<br><code>begin;</code></td>
+</tr>
+<tr>
+<td>T5</td>
+<td></td>
+<td>查询小明账户余额<br><code>select * from users where id = 2;</code><br> 查询结果为 500 元，余额充足则执行支付逻辑</td>
+</tr>
+<tr>
+<td>T6</td>
+<td></td>
+<td>小明账户扣款 100 元<br><code>update users set money=money-100 where id = 2;</code><br>本条语句将会阻塞</td>
+</tr>
+<tr>
+<td>T7</td>
+<td>事务 A 回滚<br><code>rollback;</code></td>
+<td>语句执行完毕</td>
+</tr>
+<tr>
+<td>T8</td>
+<td></td>
+<td>事务 B 提交<br><code>commit;</code></td>
+</tr>
+</tbody>
+</table>
+<p>最后我们查询<code>users</code>表，结果如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| id | name | money  |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| 1  | 小王 | 1000.0 |</span></span><br><span class="line"><span class="comment">| 2  | 小明 | -100.0 |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+<p>令人惊讶的结果，小明的余额变成了 -100 元！这就是脏读的危害，我们重点看上表的 T5，发现在事务 A 还未提交之时事务 B 便已经读取到了事务 A 更新后的结果，这直接导致了我们程序判断余额充足从而执行了扣款的逻辑。如果事务 A 成功提交那么程序结果就是正确的，但是事务 A 最后没有成功提交而是进行了回滚，这就导致了用户余额被扣款为负数的灾难。</p>
+<h2 id="0x04-不可重复读"><a href="#0x04-不可重复读" class="headerlink" title="0x04 不可重复读"></a>0x04 不可重复读</h2><p>不可重复读的概念如下：</p>
+<blockquote>
+<p>一个事务开始时，只能看见已经提交的事务所做的修改。换句话说，一个事务从开始直到提交之前，所做的任何修改对其他事务都是不可见的。但是两次执行同样的查询，可能会得到不一样的结果。</p>
+</blockquote>
+<p>实验<code>users</code>表如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| id | name | money  |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| 1  | 小王 | 1000.0 |</span></span><br><span class="line"><span class="comment">| 2  | 小明 |    0.0 |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+<p>实验步骤表：</p>
+<table>
+<thead>
+<tr>
+<th>时间</th>
+<th>客户端 A</th>
+<th>客户端 B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td>设置事务隔离级别为 read committed</td>
+<td>设置事务隔离级别为 read committed</td>
+</tr>
+<tr>
+<td>T2</td>
+<td>开始事务 A<br> <code>begin;</code></td>
+<td></td>
+</tr>
+<tr>
+<td>T3</td>
+<td>查询小明余额<br><code>select * from users where id = 2;</code><br>余额为 0 元</td>
+<td></td>
+</tr>
+<tr>
+<td>T4</td>
+<td></td>
+<td>开始事务 B<br><code>begin;</code></td>
+</tr>
+<tr>
+<td>T5</td>
+<td></td>
+<td>小明账户充值100元<br><code>update users set money=money+100 where id = 2;</code></td>
+</tr>
+<tr>
+<td>T6</td>
+<td></td>
+<td>事务 B 提交<br><code>commit;</code></td>
+</tr>
+<tr>
+<td>T7</td>
+<td>查询小明余额<br><code>select * from users where id = 2;</code><br>余额为 100 元</td>
+<td></td>
+</tr>
+<tr>
+<td>T8</td>
+<td>事务 A 提交<br><code>commit;</code></td>
+</tr>
+</tbody>
+</table>
+<p>不可重复读表现在于在同一个事务之中，两个相同的查询得到的查询结果却不同。这是由于两个查询结果之间，出现另外一个事务修改了包含之前查询结果的记录，导致第二次查询与第一次查询结果不同。它与脏读的区别在于修改记录的事务 B 必须提交成功，查询事务 A 才能读取到修改后的记录，如果事务 B 回滚了，事务 A 的查询结果还是一样的。</p>
+<h2 id="0x05-幻读"><a href="#0x05-幻读" class="headerlink" title="0x05 幻读"></a>0x05 幻读</h2><p>幻读概念如下：</p>
+<blockquote>
+<p>所谓幻读，指的是当某个事务在读取某个范围内的记录时，另外一个事务又在该范围内插入了新的记录，当之前的事务再次读取该范围的记录时，会产生幻行。InnoDB存储引擎通过多版本并发控制（MVCC）解决了幻读的问题。</p>
+</blockquote>
+<p>经过本人测试发现在 <code>可重复读（repeatable read）</code>的事务隔离级别下，MySQL 不会产生幻行但是通过写入一行数据证明幻读问题的存在。</p>
+<p>实验<code>users</code>表如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| id | name | money  |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">| 1  | 小王 | 1000.0 |</span></span><br><span class="line"><span class="comment">| 2  | 小明 |    0.0 |</span></span><br><span class="line"><span class="comment">+----+------+--------+</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+<p>实验步骤表：</p>
+<table>
+<thead>
+<tr>
+<th>时间</th>
+<th>客户端 A</th>
+<th>客户端 B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td>设置事务隔离级别为 repeatable read</td>
+<td>设置事务隔离级别为 repeatable read</td>
+</tr>
+<tr>
+<td>T2</td>
+<td>开始事务 A<br> <code>begin;</code></td>
+<td></td>
+</tr>
+<tr>
+<td>T3</td>
+<td></td>
+<td>开始事务 B<br><code>begin;</code></td>
+</tr>
+<tr>
+<td>T4</td>
+<td></td>
+<td>插入一行<br><code>insert into users(id, name, money) values (3, &quot;小红&quot;,1000);</code></td>
+</tr>
+<tr>
+<td>T5</td>
+<td></td>
+<td>事务 B 提交<br><code>commit;</code></td>
+</tr>
+<tr>
+<td>T6</td>
+<td>查询<code>users</code>表<br><code>select * from users;</code><br>并无 id 为 3 的记录</td>
+<td></td>
+</tr>
+<tr>
+<td>T7</td>
+<td>插入一行<br><code>insert into users(id, name, money) values (3, &quot;小红&quot;,1000);</code></td>
+<td></td>
+</tr>
+<tr>
+<td>T8</td>
+<td>出现报错：<code>(1062, u&quot;Duplicate entry &#39;3&#39; for key &#39;PRIMARY&#39;&quot;)</code></td>
+</tr>
+</tbody>
+</table>
+<p>对于事务 A 来说出现的报错就像见鬼了一样，因为事务 A 在查询 <code>users</code> 表的结果并不存在 <code>id</code> 为 3 的行！而在插入该行时却出现了该行已存在的报错……也许这就是叫幻读的原因吧。</p>
+<h2 id="0x06-总结"><a href="#0x06-总结" class="headerlink" title="0x06 总结"></a>0x06 总结</h2><p>网上已有很多这种类型的文章，本文也参考了许多内容，之所以还要「老调重弹」是因为「纸上得来终觉浅，绝知此事要躬行」，实践才是检验真理的唯一标准，当然本文也可能出现谬误，欢迎指正。内心 OS：数据库真的后端的一块大头，不想整天 CRUD 就要更深入的学啊。感觉《高性能 MySQL》这本书不错，有空要研读一下，最后觉得很有必要学习关于 MySQL 锁相关的内容。</p>
+</div><br><p>转载请注明出处:<a href="https://www.0php.net/posts/MySQL-事务隔离实验-认识：脏读、不可重复读、幻读.html" target="_blank" title="https://www.0php.net/posts/MySQL-事务隔离实验-认识：脏读、不可重复读、幻读.html">https://www.0php.net/posts/MySQL-事务隔离实验-认识：脏读、不可重复读、幻读.html</a></p><a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="知识共享许可协议" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br /><p>本作品采用<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">知识共享署名-相同方式共享 4.0 国际许可协议</a>进行许可。</p><div class="post-footer"><div class="meta"><div class="info"><i class="fa fa-sun-o"></i><span class="date">2018-09-17</span><i class="fa fa-comment-o"></i><a href="/posts/MySQL-事务隔离实验-认识：脏读、不可重复读、幻读.html#comments">评论</a><i class="fa fa-tag"></i><a class="tag" href="/tags/MySQL/" title="MySQL">MySQL </a><a class="tag" href="/tags/数据库/" title="数据库">数据库 </a><a class="tag" href="/tags/事务/" title="事务">事务 </a></div></div></div></div><div class="share"><div class="evernote"><a class="fa fa-bookmark" href="javascript:(function(){EN_CLIP_HOST='http://www.evernote.com';try{var%20x=document.createElement('SCRIPT');x.type='text/javascript';x.src=EN_CLIP_HOST+'/public/bookmarkClipper.js?'+(new%20Date().getTime()/100000);document.getElementsByTagName('head')[0].appendChild(x);}catch(e){location.href=EN_CLIP_HOST+'/clip.action?url='+encodeURIComponent(location.href)+'&amp;title='+encodeURIComponent(document.title);}})();" ref="nofollow" target="_blank"></a></div><div class="weibo"><a class="fa fa-weibo" href="javascript:void((function(s,d,e){try{}catch(e){}var f='http://service.weibo.com/share/share.php?',u=d.location.href,p=['url=',e(u),'&amp;title=',e(d.title),'&amp;appkey=2924220432'].join('');function a(){if(!window.open([f,p].join(''),'mb',['toolbar=0,status=0,resizable=1,width=620,height=450,left=',(s.width-620)/2,',top=',(s.height-450)/2].join('')))u.href=[f,p].join('');};if(/Firefox/.test(navigator.userAgent)){setTimeout(a,0)}else{a()}})(screen,document,encodeURIComponent));"></a></div><div class="twitter"><a class="fa fa-twitter" href="http://twitter.com/home?status=,https://www.0php.net/posts/MySQL-事务隔离实验-认识：脏读、不可重复读、幻读.html,一只贱熊猫的博客,MySQL 事务隔离实验-认识：脏读、不可重复读、幻读,;"></a></div></div><div class="pagination"><ul class="clearfix"><li class="next pagbuttons"><a class="btn" role="navigation" href="/posts/PHP-数组底层实现.html" title="PHP 数组底层实现">下一篇</a></li></ul></div><a id="comments"></a><div id="disqus_thread"></div><script>var disqus_shortname = 'zanemmm';
+var disqus_identifier = 'posts/MySQL-事务隔离实验-认识：脏读、不可重复读、幻读.html';
+var disqus_title = 'MySQL 事务隔离实验-认识：脏读、不可重复读、幻读';
+var disqus_url = 'https://www.0php.net/posts/MySQL-事务隔离实验-认识：脏读、不可重复读、幻读.html';
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//#{theme.disqus}.disqus.com/count.js" async></script></div></div></div></div><script src="/js/jquery.js"></script><script src="/js/jquery-migrate-1.2.1.min.js"></script><script src="/js/jquery.appear.js"></script></body></html>
