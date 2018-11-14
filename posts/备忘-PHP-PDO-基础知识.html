@@ -6,7 +6,7 @@
 <p>&lt;数据库驱动&gt;:host=&lt;数据库主机名&gt;[:数据库端口];dbname=&lt;数据库名&gt;</p>
 </blockquote>
 <p>MySQL的参考数据源：<code>mysql:host=127.0.0.1:3306;dbname=test</code></p>
-<h3 id="重要方法"><a href="#重要方法" class="headerlink" title="重要方法"></a>重要方法</h3><h4 id="exec"><a href="#exec" class="headerlink" title="exec"></a>exec</h4><p>执行一条的 SQL 语句并返回首影响行数，<strong>注意：该方法执行 SELECT 语句只会返回 0 </strong>。</p>
+<h3 id="重要方法"><a href="#重要方法" class="headerlink" title="重要方法"></a>重要方法</h3><h4 id="exec"><a href="#exec" class="headerlink" title="exec"></a>exec</h4><p>执行一条的 SQL 语句并返回受影响行数，<strong>注意：该方法执行 SELECT 语句只会返回 0 </strong>。</p>
 <h4 id="query"><a href="#query" class="headerlink" title="query"></a>query</h4><p>执行一条的 SQL 语句并返回一个 PDOStatement 对象。示例：</p>
 <figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$select = <span class="string">"SELECT * FROM `posts`;"</span>;</span><br><span class="line">$statement = $pdo-&gt;query($select);</span><br><span class="line"><span class="keyword">echo</span> get_class($statement);</span><br><span class="line"><span class="comment">// 输出 PDOStatement</span></span><br></pre></td></tr></table></figure>
 <p>PDOStatement 对象可以理解为「结果集对象」，通过该对象的方法我们可以获取到 SQL 语句的查询结果。</p>
