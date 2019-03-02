@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><meta name="author" content="Zane,pi@0php.net"><title>HTTP 常用知识点 · 一只贱熊猫的博客</title><meta name="description" content="0x00 报文格式一个普通的 HTTP 请求报文格式如下：
+12345[请求方法] [URI] [HTTP版本]Host: [主机地址]// ... 其它请求头信息// 一行空行[请求实体]
+简单例子如下：
+12GET / HTTP/1.1Host: www.baidu.com
+上述例子有两个空行，"><meta name="keywords" content="PHP,Web,Swoole,HTML,CSS"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="renderer" content="webkit"><link rel="short icon" href="/images/favicon.png" type="image/x-icon"><link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/blog_basic.css"><link rel="stylesheet" href="/css/font-awesome.min.css"><link rel="alternate" type="application/atom+xml" title="ATOM 1.0" href="/atom.xml"></head><body><div class="sidebar animated fadeInDown"><div class="logo-title"><div class="title"><img src="/images/logo@2x.png" style="width:127px;"><h3 title=""><a href="/">一只贱熊猫的博客</a></h3><div class="description"><p>夫夷以近，则游者众；险以远，则至者少。</p></div></div></div><ul class="social-links"><li><a href="http://github.com/zanemmm"><i class="fa fa-github"></i></a></li></ul><div class="footer"><a target="_blank" href="/"><span>Theme by </span></a><a href="https://www.caicai.me"> CaiCai </a><span>&</span><a href="https://github.com/Ben02/hexo-theme-Anatole"> Ben</a><div class="by_farbox"><a href="https://hexo.io/zh-cn/" target="_blank">Proudly published with Hexo&#65281;</a></div></div></div><div class="main"><div class="page-top animated fadeInDown"><div class="nav"><li><a href="/">首页</a></li><li><a href="/about">关于</a></li><li><a href="/archives">归档</a></li><li><a href="/links">友链</a></li></div><div class="information"><div class="back_btn"><li><a class="fa fa-chevron-left" onclick="window.history.go(-1)"> </a></li></div><div class="avatar"><img src="/images/logo.png"></div></div></div><div class="autopagerize_page_element"><div class="content"><div class="post-page"><div class="post animated fadeInDown"><div class="post-title"><h3><a>HTTP 常用知识点</a></h3></div><div class="post-content"><h2 id="0x00-报文格式"><a href="#0x00-报文格式" class="headerlink" title="0x00 报文格式"></a>0x00 报文格式</h2><p>一个普通的 <code>HTTP</code> 请求报文格式如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[请求方法] [URI] [HTTP版本]</span><br><span class="line">Host: [主机地址]</span><br><span class="line">// ... 其它请求头信息</span><br><span class="line">// 一行空行</span><br><span class="line">[请求实体]</span><br></pre></td></tr></table></figure>
+<p>简单例子如下：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">GET</span> <span class="string">/</span> HTTP/1.1</span><br><span class="line"><span class="attribute">Host</span>: www.baidu.com</span><br></pre></td></tr></table></figure>
+<p>上述例子有两个空行，但并非无意义。第一行空行为分割请求头和请求实体的标志，第二行是因为请求实体内容为空（如果有内容就不是空行）。</p>
+<p>下面来看响应报文格式：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[HTTP协议版本] [响应状态码] [状态码含义]</span><br><span class="line">Content-Type: [响应内容类型]</span><br><span class="line">// ... 其它响应头信息</span><br><span class="line">// 一行空行</span><br><span class="line">[响应实体]</span><br></pre></td></tr></table></figure>
+<p>简单例子如下：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">HTTP/1.1 <span class="number">200</span> OK</span><br><span class="line"><span class="attribute">Content-Type</span>: text/html</span><br><span class="line"><span class="attribute">Content-Length</span>: 34</span><br><span class="line"></span><br><span class="line">&lt;html&gt;&lt;h1&gt;Hello World!&lt;/h1&gt;&lt;/html&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="0x01-重要的头信息"><a href="#0x01-重要的头信息" class="headerlink" title="0x01 重要的头信息"></a>0x01 重要的头信息</h2><h3 id="Content-Length"><a href="#Content-Length" class="headerlink" title="Content-Length"></a>Content-Length</h3><p><code>Content-Length</code> 表示请求/响应实体内容的长度（单位是字节）。</p>
+<p><strong>当 Content-Length 的值与实际内容字节数不符会出现什么情况？</strong></p>
+<ol>
+<li>当内容的实际字节数<strong>大于</strong> <code>Content-Length</code> 的值时：<ul>
+<li>当服务端接收的<strong>请求实体</strong>长度超过 <code>Content-Length</code> ，服务端会直接关闭连接，导致本次请求失败。</li>
+<li>当服务端返回的<strong>响应实体</strong>长度超过  <code>Content-Length</code>，超出的部分会被截断，只保留 <code>Content-Length</code> 长度的内容。</li>
+</ul>
+</li>
+<li>当内容的实际字节数<strong>小于</strong> <code>Content-Length</code> 的值时：<ul>
+<li>当服务端接收的<strong>请求实体</strong>长度小于 <code>Content-Length</code>，因为接收到的长度不够服务端会继续等待后面的数据，直到超时。</li>
+<li>当服务端返回的<strong>响应实体</strong>长度小于 <code>Content-Length</code>，Chrome 浏览器会报 <code>net::ERR_CONTENT_LENGTH_MISMATCH</code> 的错误。</li>
+</ul>
+</li>
+</ol>
+<p><strong>注意：</strong> 在多数浏览器中发起 AJAX 请求时是不能自定义 <code>Content-Length</code> 头的（出于安全原因），以 Chorme 为例会报 <code>Refused to set unsafe header &quot;Content-Length&quot;</code> 的错误。</p>
+<p><strong>关于 PHP 的应用技巧：</strong></p>
+<p>一般来说浏览器在接收到 <code>Content-Length</code> 单位个字节后就会视为本次请求完毕，所以利用 <code>Content-Length</code> 可以实现在请求完毕后继续执行一些任务最后才结束我们的 PHP 进程。示例如下：</p>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?php</span></span><br><span class="line">header(<span class="string">'Content-Length: 12'</span>);</span><br><span class="line"><span class="keyword">echo</span> <span class="string">'i love http!'</span>;</span><br><span class="line">sleep(<span class="number">6</span>);</span><br><span class="line">file_put_contents(<span class="string">'./1.txt'</span>, <span class="string">'123'</span>);</span><br></pre></td></tr></table></figure>
+<p>访问上述代码，可以发现输出 <code>i love http!</code> 后请求就完成，但是 PHP 的进程仍在运行，直到 6 秒后写入文件 <code>1.txt</code> 进程结束。</p>
+<p>这种方式适用于能够计算响应内容长度的情况，但如果响应长度不确定，比如我们要返回一个很大的响应，因为要节省内存所以采用分段读入，处理，输出的策略，那么这种情况就不能用这个方法了，因为无法提前计算出内容的长度。不过如果你使用了 <code>PHP-FPM</code> 可以使用 <a href="http://php.net/manual/zh/function.fastcgi-finish-request.php" target="_blank" rel="noopener">fastcgi_finish_request</a> 函数实现这个功能。</p>
+<h3 id="Transfer-Encoding"><a href="#Transfer-Encoding" class="headerlink" title="Transfer-Encoding"></a>Transfer-Encoding</h3><p><code>Transfer-Encoding</code> 表示传输的编码，一般情况下值都是 <code>chunked</code>，表示分块传输。使用 <code>chunked</code> 分块传输解决的就是 <code>Content-Length</code> 无法提前计算出来的情况，<strong>所以<code>Transfer-Encoding</code> 和 <code>Content-Length</code> 是互斥的，如果同时出现，浏览器以 <code>Transfer-Encoding</code> 为准。 </strong> 使用 <code>chunked</code> 后响应的示例如下：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">HTTP/1.1 <span class="number">200</span> OK </span><br><span class="line"><span class="attribute">Content-Type</span>: text/plain </span><br><span class="line"><span class="attribute">Transfer-Encoding</span>: chunked</span><br><span class="line"></span><br><span class="line"><span class="attribute">7\r\n</span></span><br><span class="line">Mozilla\r\n </span><br><span class="line"><span class="attribute">9\r\n</span></span><br><span class="line"><span class="attribute">Developer\r\n</span></span><br><span class="line"><span class="attribute">7\r\n</span></span><br><span class="line"><span class="attribute">Network\r\n</span></span><br><span class="line">0\r\n </span><br><span class="line">\r\n</span><br></pre></td></tr></table></figure>
+<h3 id="Content-Type"><a href="#Content-Type" class="headerlink" title="Content-Type"></a>Content-Type</h3><p><code>Content-Type</code> 表示响应实体的 <a href="https://developer.mozilla.org/en-US/docs/Glossary/MIME_type" target="_blank" rel="noopener">媒体类型</a>。</p>
+<h3 id="Accept"><a href="#Accept" class="headerlink" title="Accept"></a>Accept</h3><p><code>Accept</code> 表示客户端能接受响应实体的 <a href="https://developer.mozilla.org/en-US/docs/Glossary/MIME_type" target="_blank" rel="noopener">媒体类型</a>。</p>
+<p>还有很多重要的头比如 cookie 相关的、跨域相关的、缓存相关的，篇幅所限暂不解释，请移步至 <a href="https://cloud.tencent.com/developer/chapter/13542" target="_blank" rel="noopener">腾讯云社区 / HTTP 文档 / Headers</a>。</p>
+<h2 id="0x02-请求方法"><a href="#0x02-请求方法" class="headerlink" title="0x02 请求方法"></a>0x02 请求方法</h2><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>GET</th>
+<th>POST</th>
+<th>PUT</th>
+<th>DELETE</th>
+<th>PATCH</th>
+<th>OPTIONS</th>
+<th>HEAD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>请求实体有内容</td>
+<td>否</td>
+<td>是</td>
+<td>是</td>
+<td>否</td>
+<td>是</td>
+<td>否</td>
+<td>否</td>
+</tr>
+<tr>
+<td>请求成功时响应实体有内容</td>
+<td>是</td>
+<td>是</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>是</td>
+<td>否</td>
+</tr>
+<tr>
+<td>安全</td>
+<td>是</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr>
+<td>幂等</td>
+<td>是</td>
+<td>否</td>
+<td>是</td>
+<td>是</td>
+<td>否</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr>
+<td>可缓存</td>
+<td>是</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>是</td>
+</tr>
+<tr>
+<td>允许出现在 HTML 表单</td>
+<td>是</td>
+<td>是</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+</tr>
+</tbody>
+</table>
+<h2 id="0x03-状态码"><a href="#0x03-状态码" class="headerlink" title="0x03 状态码"></a>0x03 状态码</h2><p>原谅我的懒惰，直接点击查看 <a href="http://tool.oschina.net/commons?type=5" target="_blank" rel="noopener">状态码表格</a>。</p>
+<p>列出一些常用的状态码：</p>
+<ol>
+<li>200 201 202 204</li>
+<li>301 302 304</li>
+<li>400 401 403 404 405 422</li>
+<li>502 503 504</li>
+</ol>
+<h3 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h3><p><strong>301 和 302 的区别？</strong></p>
+<p>301 重定向作为永久重定向，也意味着<strong>它是可以被缓存的</strong>，举个例子：用户第一次访问 A.com，服务器响应 301 并重定向至 B.com，重定向的结果会<strong>默认被浏览器缓存</strong>下来，当用户再次访问 A.com 时，浏览器并不会向 A.com 发起请求，而是直接跳转到 B.com。而 302 重定向则<strong>默认不会被浏览器缓存</strong>下来，意味着每次都会请求原服务器，再按服务器返回的响应执行重定向操作。当然通过设置缓存控制头可以改变默认的缓存策略。</p>
+<p><strong>301 和 302 导致 POST 请求变 GET（POST 请求参数丢失）？</strong></p>
+<p>当使用 <code>POST</code> 方法请求时如果服务端返回 301 或 302 状态码并指定重定向地址，那么大多数浏览器会采用 <code>GET</code> 方法请求重定向地址，这意味着之前 <code>POST</code> 请求所带的参数会丢失！如果你不希望请求的方法被改变，则服务端应该返回 307（对应 302）或 308（对应 301）。</p>
+<p>详见：<a href="https://www.cnblogs.com/wuguanglin/p/redirect.html" target="_blank" rel="noopener">https://www.cnblogs.com/wuguanglin/p/redirect.html</a></p>
+</div><br><p>转载请注明出处:<a href="https://www.0php.net/posts/HTTP 常用知识点.html" target="_blank" title="https://www.0php.net/posts/HTTP 常用知识点.html">https://www.0php.net/posts/HTTP 常用知识点.html</a></p><a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="知识共享许可协议" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br /><p>本作品采用<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">知识共享署名-相同方式共享 4.0 国际许可协议</a>进行许可。</p><div class="post-footer"><div class="meta"><div class="info"><i class="fa fa-sun-o"></i><span class="date">2019-03-01</span><i class="fa fa-comment-o"></i><a href="/posts/HTTP 常用知识点.html#comments">评论</a><i class="fa fa-tag"></i><a class="tag" href="/tags/HTTP/" title="HTTP">HTTP </a></div></div></div></div><div class="share"><div class="evernote"><a class="fa fa-bookmark" href="javascript:(function(){EN_CLIP_HOST='http://www.evernote.com';try{var%20x=document.createElement('SCRIPT');x.type='text/javascript';x.src=EN_CLIP_HOST+'/public/bookmarkClipper.js?'+(new%20Date().getTime()/100000);document.getElementsByTagName('head')[0].appendChild(x);}catch(e){location.href=EN_CLIP_HOST+'/clip.action?url='+encodeURIComponent(location.href)+'&amp;title='+encodeURIComponent(document.title);}})();" ref="nofollow" target="_blank"></a></div><div class="weibo"><a class="fa fa-weibo" href="javascript:void((function(s,d,e){try{}catch(e){}var f='http://service.weibo.com/share/share.php?',u=d.location.href,p=['url=',e(u),'&amp;title=',e(d.title),'&amp;appkey=2924220432'].join('');function a(){if(!window.open([f,p].join(''),'mb',['toolbar=0,status=0,resizable=1,width=620,height=450,left=',(s.width-620)/2,',top=',(s.height-450)/2].join('')))u.href=[f,p].join('');};if(/Firefox/.test(navigator.userAgent)){setTimeout(a,0)}else{a()}})(screen,document,encodeURIComponent));"></a></div><div class="twitter"><a class="fa fa-twitter" href="http://twitter.com/home?status=,https://www.0php.net/posts/HTTP 常用知识点.html,一只贱熊猫的博客,HTTP 常用知识点,;"></a></div></div><div class="pagination"><ul class="clearfix"><li class="next pagbuttons"><a class="btn" role="navigation" href="/posts/使用-Symfony-Console-组件构建命令行应用.html" title="使用 Symfony Console 组件构建命令行应用">下一篇</a></li></ul></div><a id="comments"></a><div id="disqus_thread"></div><script>var disqus_shortname = 'zanemmm';
+var disqus_identifier = 'posts/HTTP 常用知识点.html';
+var disqus_title = 'HTTP 常用知识点';
+var disqus_url = 'https://www.0php.net/posts/HTTP 常用知识点.html';
+(function() {
+    var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+    dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+})();</script><script id="dsq-count-scr" src="//#{theme.disqus}.disqus.com/count.js" async></script></div></div></div></div><script src="/js/jquery.js"></script><script src="/js/jquery-migrate-1.2.1.min.js"></script><script src="/js/jquery.appear.js"></script></body></html>
